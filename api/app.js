@@ -116,7 +116,8 @@ if (cluster.isMaster) {
     app.get('/svc-2', function(req, res) {
         var svc2URL = process.env.SVC2_URL || 'http://localhost:8081'
         const instance = axios.create({
-            baseURL: svc2URL
+            baseURL: svc2URL,
+            timeout: 2000
         })
         instance.get('/hello')
         .then(response => {

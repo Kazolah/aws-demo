@@ -35,6 +35,12 @@ if (cluster.isMaster) {
     app.use(bodyParser.json())
     app.use(cors())
 
+    app.get('/', function(req, res) {
+        res.send({
+            'status': 'OK',
+        })
+    });
+
     app.get('/hello', function(req, res) {
         res.send({
             'status': 'OK',

@@ -1,19 +1,15 @@
 import React, {Component} from 'react';
-import { TextField, Snackbar, CircularProgress} from '@material-ui/core'
+import { TextField, Snackbar, CircularProgress, Fab } from '@material-ui/core'
+import RefreshIcon from '@material-ui/icons/Refresh';
 import './App.css';
 import axios from 'axios';
 const moment = require('moment-timezone')
 const sanitizer = require('sanitizer')
 
-const apiURL = "http://localhost:8080"
-const s3URL = "https://afypsw2lwf.execute-api.ap-southeast-1.amazonaws.com/demo"
+const apiURL = "https://afypsw2lwf.execute-api.ap-southeast-1.amazonaws.com/demo"
+
 const instance = axios.create({
   baseURL: apiURL,
-  timeout: 3000
-})
-
-const apiGWAxios = axios.create({
-  baseURL: s3URL,
   timeout: 3000
 })
 
@@ -23,26 +19,30 @@ class App extends Component {
     svc2msg: "",
     text: "",
     openSnackBar: false,
-    msgStatus: "",
+    snackBarMsg: "",
     txtErrorMsg: "",
     fileToUpload: undefined,
-    uploading: false
+    uploading: false,
+    token: "",
+    tokenErrorMsg: ""
   }
 
-  componentDidMount() {
-    instance.get('/messages')
+  refreshTable = event => {
+    instance.get('/messages', {
+      headers: {
+        "token": this.state.token
+      }
+    })
     .then(res => {
       this.setState({
         messages: res.data.data
       })
     })
-  }
-
-  refreshTable = () => {
-    instance.get('/messages')
-    .then(res => {
+    .catch(err => {
       this.setState({
-        messages: res.data.data
+        messages: [],
+        snackBarMsg: "Error fetching table data. " + err.message,
+        openSnackBar: true,
       })
     })
   }
@@ -50,13 +50,18 @@ class App extends Component {
   handleSnackbarClose = event => {
     this.setState({
       openSnackBar: false,
-      msgStatus: ""
+      snackBarMsg: ""
     })
   }
 
   handleChange = event => this.setState({
     text: event.target.value,
     txtErrorMsg: ""
+  })
+
+  handleTokenChange = event => this.setState({
+    token: event.target.value,
+    tokenErrorMsg: ""
   })
 
   handleBrowse = event => {
@@ -66,7 +71,11 @@ class App extends Component {
   }
 
   handleInvoke = event => {
-    instance.get('/svc-2')
+    instance.get('/svc-2', {
+      headers: {
+        "token": this.state.token
+      }
+    })
     .then(res => {
       this.setState({
         svc2msg: res.data.message
@@ -74,9 +83,13 @@ class App extends Component {
     })
     .catch(err => {
       this.setState({
-        svc2msg: "Error! Could not reach to the other Service."
+        svc2msg: "Error! Could not reach to the other Service. " + err.message
       })
     })
+  }
+
+  handleSave = event => {
+    this.refreshTable()
   }
 
   handleSubmit = event => {
@@ -84,17 +97,21 @@ class App extends Component {
       instance.post('/messages', {
         'created_at': moment().format("YYYY-MM-DD HH:mm:SS"),
         'message': sanitizer.escape(this.state.text)
+      }, {
+        headers: {
+          "token": this.state.token
+        },
       }).then(res => {
         this.setState({
           openSnackBar: true,
-          msgStatus: "Message is successfully submitted",
+          snackBarMsg: "Message is successfully submitted",
           text: ""
         });
         this.refreshTable()
       }).catch(err => {
         this.setState({
           openSnackBar: true,
-          msgStatus: "Message submission failed",
+          snackBarMsg: "Message submission failed. " + err.message,
           text: ""
         })
       })
@@ -109,7 +126,7 @@ class App extends Component {
     if (!this.state.fileToUpload) {
       this.setState({
         openSnackBar: true,
-        msgStatus: "Empty file. Choose a file to upload.",
+        snackBarMsg: "Empty file. Choose a file to upload.",
       });
       return
     }
@@ -117,12 +134,16 @@ class App extends Component {
     if (this.state.fileToUpload.size / 1000000 >= 1) {
       this.setState({
         openSnackBar: true,
-        msgStatus: "Error. File must be below 1MB.",
+        snackBarMsg: "Error. File must be below 1MB.",
       });
       return
     }
     
-    apiGWAxios.get('/s3-presigned-url?fileName=' + this.state.fileToUpload.name)
+    instance.get('/s3-presigned-url?fileName=' + this.state.fileToUpload.name, {
+      headers: {
+        "token": this.state.token
+      }
+    })
     .then(res => {
       axios({
         method: "PUT",
@@ -132,7 +153,7 @@ class App extends Component {
       }).then(res => {
         this.setState({
           openSnackBar: true,
-          msgStatus: "Uploading the file...",
+          snackBarMsg: "Uploading the file...",
           fileToUpload: undefined,
           uploading: true
         });
@@ -140,7 +161,7 @@ class App extends Component {
         setTimeout(() => { 
           this.setState({
             uploading: false,
-            msgStatus: "Successfully uploaded the file.",
+            snackBarMsg: "Successfully uploaded the file.",
           }) 
           this.refreshTable()
         }, 2000)
@@ -148,14 +169,14 @@ class App extends Component {
       }).catch(err => {
         this.setState({
           openSnackBar: true,
-          msgStatus: "Error uploading file. Try again",
+          snackBarMsg: "Error uploading file. Try again",
         });
       })
     })
     .catch(err => {
       this.setState({
         openSnackBar: true,
-        msgStatus: "Error getting pre-signed URL. Try again",
+        snackBarMsg: "Error getting pre-signed URL. " + err.message,
       });
     })
    
@@ -167,8 +188,20 @@ class App extends Component {
         <h2>AWS Demo</h2>
         <div className="cus-container"> 
           <div>
+          <p>Enter the token provided, otherwise buttons will be disabled and the app will not work.</p>
+          <TextField 
+              error={this.state.tokenErrorMsg === "Token is required"}
+              className="txt-field" 
+              variant="outlined" 
+              id="outlined-basic" 
+              helperText={this.state.tokenErrorMsg}
+              label="Auth Token" 
+              value={this.state.token}
+              onChange={this.handleTokenChange}
+            />
+            <hr/>
             <h5>Invoke service in the peered VPC</h5>
-            <button onClick={this.handleInvoke} type="button" className="btn-invoke btn btn-outline-primary">Invoke</button>
+            <button onClick={this.handleInvoke} disabled={this.state.token === ""} type="button" className="btn-invoke btn btn-outline-primary">Invoke</button>
             <p>Msg from the other Service: <b>{this.state.svc2msg}</b></p>
           </div>
           <hr/>
@@ -185,7 +218,7 @@ class App extends Component {
               value={this.state.text}
               onChange={this.handleChange}
             />
-            <button onClick={this.handleSubmit} type="button" className="btn-submit btn btn-outline-primary">Submit</button>
+            <button onClick={this.handleSubmit}  disabled={this.state.token === ""} type="button" className="btn-submit btn btn-outline-primary">Submit</button>
             
             <div className="input-group mb-3 file-upload-gp ">
               <div className="custom-file">
@@ -197,7 +230,7 @@ class App extends Component {
                 </label>
               </div>
               <div className="input-group-append">
-                <button onClick={this.handleUpload} type="button" className="btn btn-outline-secondary">Upload</button>
+                <button onClick={this.handleUpload} disabled={this.state.token === ""} type="button" className="btn btn-outline-secondary">Upload</button>
               </div>
             </div>
             <div className="loading-icon">
@@ -206,7 +239,11 @@ class App extends Component {
               }
             </div>
             <p className="table-msg">The following table displays items from DynamoDB.</p>
-            <table className="table">
+            <Fab  disabled={this.state.token === ""} size="small" color="secondary" variant="extended" onClick={this.refreshTable}>
+              <RefreshIcon/>
+              Refresh
+            </Fab>
+            <table className="table cus-table">
               <thead>
                 <tr>
                   <th scope="col">Timestamp</th>
@@ -235,7 +272,7 @@ class App extends Component {
               open={this.state.openSnackBar} 
               autoHideDuration={5000} 
               onClose={this.handleSnackbarClose}
-              message={this.state.msgStatus}
+              message={this.state.snackBarMsg}
             />
           </div>
         </div>
