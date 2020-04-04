@@ -1,0 +1,15 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "aws-sdk": "latest",
+    "axios": "^0.19.2",
+    "body-parser": "latest",
+    "cors": "^2.8.5",
+    "express": "latest"
+  }
+}
