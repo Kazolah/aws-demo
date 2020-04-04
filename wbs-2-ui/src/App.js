@@ -134,7 +134,7 @@ class App extends Component {
     if (this.state.fileToUpload.size / 1000000 >= 1) {
       this.setState({
         openSnackBar: true,
-        snackBarMsg: "Error. File must be below 1MB.",
+        snackBarMsg: "Error. File must be less than 1MB.",
       });
       return
     }
@@ -188,7 +188,7 @@ class App extends Component {
         <h2>AWS Demo</h2>
         <div className="cus-container"> 
           <div>
-          <p>Enter the token provided, otherwise buttons will be disabled and the app will not work.</p>
+          <p>Enter the token or buttons will be disabled. API requests will fail if the wrong token is provided.</p>
           <TextField 
               error={this.state.tokenErrorMsg === "Token is required"}
               className="txt-field" 
@@ -201,13 +201,14 @@ class App extends Component {
             />
             <hr/>
             <h5>Invoke service in the peered VPC</h5>
+            <p>The 2nd API service in another VPC will be called via the main API service.</p>            
             <button onClick={this.handleInvoke} disabled={this.state.token === ""} type="button" className="btn-invoke btn btn-outline-primary">Invoke</button>
             <p>Msg from the other Service: <b>{this.state.svc2msg}</b></p>
           </div>
           <hr/>
           <div>
-            <h5>Enter your message and submit or Upload a file to S3</h5>
-            <p>Your submitted messages will be saved in the database. <br/> Uploaded files will be stored in S3 and the URLs will be stored in the database.</p>            
+            <h5>Submit a text or Upload a file</h5>
+            <p>Submitted text will be saved in DynamoDB. </p>            
             <TextField 
               error={this.state.txtErrorMsg === "Message is required"}
               className="txt-field" 
@@ -220,7 +221,8 @@ class App extends Component {
             />
             <button onClick={this.handleSubmit}  disabled={this.state.token === ""} type="button" className="btn-submit btn btn-outline-primary">Submit</button>
             
-            <div className="input-group mb-3 file-upload-gp ">
+            <p className="mt-20">Uploaded files will be stored in S3 and the URLs will be stored in DynamoDB. File size must be below 1MB.</p>
+            <div className="input-group mb-3 mt-10">
               <div className="custom-file">
                 <input onChange={this.handleBrowse} type="file" className="custom-file-input" id="inputGroupFile02" />
                 <label className="custom-file-label" htmlFor="inputGroupFile02" aria-describedby="inputGroupFileAddon02">
@@ -243,7 +245,7 @@ class App extends Component {
               <RefreshIcon/>
               Refresh
             </Fab>
-            <table className="table cus-table">
+            <table className="table mt-20">
               <thead>
                 <tr>
                   <th scope="col">Timestamp</th>

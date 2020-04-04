@@ -132,7 +132,6 @@ if (cluster.isMaster) {
                 'message': err
             })
         })
-        
     })
 
     var port = process.env.PORT || 8080;
